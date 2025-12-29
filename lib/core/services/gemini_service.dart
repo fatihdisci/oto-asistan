@@ -4,11 +4,12 @@ import 'package:google_generative_ai/google_generative_ai.dart';
 
 class GeminiService {
   final String apiKey;
+  // DÜZELTME: Şu an çalışan en güncel ve hızlı model 'gemini-1.5-flash'tır.
+  // Google 'gemini-2.5-flash'ı yayınladığında burayı güncelleyebilirsin.
+  static const String _modelName = 'gemini-2.5-flash';
 
   GeminiService({required this.apiKey});
 
-  /// Araç için kronik sorunları ve bakım önerilerini Gemini ile çeker
-  /// [currentKm] parametresi, analizin aracın o anki durumuna özel olmasını sağlar.
   Future<List<Map<String, dynamic>>> getChronicIssues({
     required String make,
     required String model,
@@ -17,36 +18,27 @@ class GeminiService {
     required int currentKm,
   }) async {
     try {
-      // DÜZELTME: Şu an aktif çalışan en hızlı ve kararlı model 'gemini-1.5-flash'tır.
-      // 'gemini-2.5' henüz genel erişimde olmadığı için 404 hatası verir.
       final modelInstance = GenerativeModel(
-        model: 'gemini-2.5-flash', 
+        model: _modelName,
         apiKey: apiKey,
       );
-      
+
       final prompt = '''
-      Sen bir kıdemli otomotiv arıza ve önleyici bakım uzmanısın. 
-      Aşağıdaki özelliklere sahip aracın teknik geçmişini, kronik zayıflıklarını ve özellikle mevcut kilometresini analiz et:
+      Sen uzman bir otomotiv teknisyenisin. Aşağıdaki aracın $currentKm km'deki durumunu analiz et:
+      Araç: $year $make $model - Motor: $engine
       
-      ARAÇ BİLGİLERİ:
-      - Marka/Model: $make $model
-      - Üretim Yılı: $year
-      - Motor: $engine
-      - Mevcut Mesafe: $currentKm km
-      
-      GÖREVİN:
-      1. Bu aracın $currentKm km seviyesinde en çok karşılaşılan kronik arızalarını belirle.
-      2. Aracın yaşına ve kilometresine bağlı olarak (örneğin 100k+ ise ağır bakım, 50k altı ise rodaj sonrası zayıflıklar) spesifik riskleri değerlendir.
-      3. Bu kilometre bandında yapılması gereken "hayat kurtarıcı" önleyici bakım tavsiyelerini listele.
+      GÖREV:
+      Bu kilometredeki bu araç için "Kronik Sorunlar" ve "Bakım Tavsiyeleri" üret.
       
       ÇIKTI FORMATI:
-      Sadece aşağıdaki JSON array yapısında cevap ver. Markdown (```json) kullanma.
+      SADECE geçerli bir JSON array döndür. Markdown (```json) kullanma.
+      Örnek:
       [
         {
-          "title": "Sorun Başlığı (Örn: $currentKm km Zincir Değişimi Gerekliliği)",
-          "description": "Neden bu kilometrede risk teşkil ettiğine dair teknik açıklama.",
-          "riskLevel": "Düşük", "Orta" veya "Yüksek",
-          "solution": "Uzman tavsiyesi: Hangi parçalar kontrol edilmeli veya değiştirilmeli?"
+          "title": "Triger Kayışı Riski",
+          "description": "Bu motorlarda 90.000 km'de triger değişimi kritiktir.",
+          "riskLevel": "Yüksek",
+          "solution": "Acilen triger setini kontrol ettirin."
         }
       ]
       ''';
@@ -54,25 +46,27 @@ class GeminiService {
       final content = [Content.text(prompt)];
       final response = await modelInstance.generateContent(content);
 
-      if (response.text != null) {
-        // AI bazen markdown formatında (```json ... ```) atabilir, temizliyoruz
-        String cleanJson = response.text!.trim();
-        
-        // Markdown temizliği
-        if (cleanJson.startsWith('```json')) {
-          cleanJson = cleanJson.replaceAll('```json', '').replaceAll('```', '');
-        } else if (cleanJson.startsWith('```')) {
-           cleanJson = cleanJson.replaceAll('```', '');
-        }
-        
-        cleanJson = cleanJson.trim();
-            
-        final List<dynamic> issues = jsonDecode(cleanJson);
-        return issues.cast<Map<String, dynamic>>();
+      if (response.text == null) return [];
+
+      // SENIOR CLEANUP: AI bazen cevabı kirletir, temizliyoruz.
+      String cleanJson = response.text!.trim();
+      
+      // Markdown temizliği
+      cleanJson = cleanJson.replaceAll('```json', '').replaceAll('```', '');
+      
+      // Olası metin fazlalıklarını at (Sadece [ ile ] arasını al)
+      final startIndex = cleanJson.indexOf('[');
+      final endIndex = cleanJson.lastIndexOf(']');
+      
+      if (startIndex != -1 && endIndex != -1) {
+        cleanJson = cleanJson.substring(startIndex, endIndex + 1);
       }
-      return [];
+
+      final List<dynamic> decodedList = jsonDecode(cleanJson);
+      return decodedList.cast<Map<String, dynamic>>();
+
     } catch (e) {
-      debugPrint('Gemini Uzman Analiz Hatası: $e');
+      debugPrint('Gemini Servis Hatası: $e');
       return [];
     }
   }

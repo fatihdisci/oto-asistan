@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/vehicle_provider.dart';
+import '../../providers/vehicle_provider.dart'; 
 import '../../widgets/maintenance_counter_widget.dart';
-import '../../widgets/chronic_issue_card_widget.dart'; // Bu widget'ın import edildiğinden emin ol
+import '../../widgets/chronic_issue_card_widget.dart';
 import '../../../routes/app_router.dart';
 
 class DashboardScreen extends ConsumerWidget {
@@ -11,14 +11,12 @@ class DashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Kullanıcının araçlarını veritabanından dinleyen provider
     final vehiclesAsync = ref.watch(userVehiclesProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('OtoAsistan'),
+        title: const Text('OtoAsistan Dashboard'),
         actions: [
-          // Çıkış Yap Butonu
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () => ref.read(authViewModelProvider.notifier).signOut(),
@@ -29,18 +27,10 @@ class DashboardScreen extends ConsumerWidget {
         data: (vehicles) {
           if (vehicles.isEmpty) {
             return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.directions_car_outlined, size: 64, color: Colors.grey),
-                  const SizedBox(height: 16),
-                  const Text('Henüz araç eklenmemiş.'),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () => Navigator.pushNamed(context, AppRouter.addVehicle),
-                    child: const Text("İlk Aracını Ekle"),
-                  )
-                ],
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.add),
+                label: const Text("İlk Aracını Ekle"),
+                onPressed: () => Navigator.pushNamed(context, AppRouter.addVehicle),
               ),
             );
           }
@@ -53,31 +43,29 @@ class DashboardScreen extends ConsumerWidget {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 1. Bakım Sayacı (KM ve Gün durumu)
                   MaintenanceCounterWidget(vehicle: vehicle),
                   
-                  // 2. AI Analiz Sonuçları (Varsa göster)
+                  // AI Analiz Bölümü
                   if (vehicle.chronicIssues.isNotEmpty) ...[
                     const Padding(
                       padding: EdgeInsets.fromLTRB(4, 16, 0, 8),
                       child: Row(
                         children: [
-                          Icon(Icons.psychology, color: Colors.deepPurple),
+                          Icon(Icons.auto_awesome, color: Colors.deepPurple),
                           SizedBox(width: 8),
-                          Text(
-                            'Uzman AI Analizi (Kronik Sorunlar)', 
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.deepPurple)
-                          ),
+                          Text('AI Uzman Analizi', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                         ],
                       ),
                     ),
-                    // Listeyi kartlara dönüştür
                     ...vehicle.chronicIssues.map((issue) => ChronicIssueCardWidget(issue: issue)),
+                  ] else ...[
+                     // Analiz henüz gelmediyse veya boşsa
+                     const Padding(
+                       padding: EdgeInsets.all(8.0),
+                       child: Text("Analiz verisi bekleniyor veya sorun bulunamadı...", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                     )
                   ],
-                  
-                  // Araçlar arası boşluk
                   const SizedBox(height: 24),
-                  const Divider(),
                 ],
               );
             },
