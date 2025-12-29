@@ -1,9 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart'; // EKLENDİ
 import '../../data/repositories/vehicle_repository.dart';
 import '../../data/models/vehicle_model.dart';
-// DİKKAT: Yeni dosya adını import ediyoruz
-import '../../core/services/gemini_service.dart';
+import '../../core/services/openai_service.dart';
 import '../viewmodels/vehicle_viewmodel.dart';
 import '../viewmodels/dashboard_viewmodel.dart';
 import 'auth_provider.dart';
@@ -12,21 +11,26 @@ final vehicleRepositoryProvider = Provider<VehicleRepository>((ref) {
   return VehicleRepository();
 });
 
-// İSİM GÜNCELLENDİ: Artık geminiServiceProvider
-final geminiServiceProvider = Provider<GeminiService?>((ref) {
+// Gemini API Sağlayıcısı
+final openAIServiceProvider = Provider<OpenAIService?>((ref) {
+  // DÜZELTME: Artık .env dosyasından okuyoruz
   final apiKey = dotenv.env['GEMINI_API_KEY'] ?? '';
-  if (apiKey.isEmpty) return null;
-  return GeminiService(apiKey: apiKey);
+  
+  // Anahtar yoksa null döner, böylece ViewModel AI'yı pas geçer
+  if (apiKey.isEmpty) {
+    print("UYARI: Gemini API Key bulunamadı!");
+    return null;
+  }
+  return OpenAIService(apiKey: apiKey);
 });
 
 final vehicleViewModelProvider =
     StateNotifierProvider<VehicleViewModel, VehicleState>((ref) {
-  // Kullanıcı değişse bile provider'ı koru (Dispose hatasını önler)
-  // ref.watch(authStateChangesProvider) KALDIRILDI.
-  
+  final user = ref.watch(authStateChangesProvider).value;
   return VehicleViewModel(
     vehicleRepository: ref.watch(vehicleRepositoryProvider),
-    geminiService: ref.watch(geminiServiceProvider), // Yeni isim
+    openAIService: ref.watch(openAIServiceProvider),
+    userId: user?.uid,
   );
 });
 

@@ -48,6 +48,15 @@ class VehicleRepository {
         .update({'currentKm': newKm});
   }
 
+  Future<void> deleteVehicle(String userId, String vehicleId) async {
+  await _firestore
+      .collection('users')
+      .doc(userId)
+      .collection('vehicles')
+      .doc(vehicleId)
+      .delete();
+}
+
   Future<void> updateChronicIssues(
     String userId,
     String vehicleId,

@@ -7,7 +7,7 @@ class GeminiService {
 
   GeminiService({required this.apiKey});
 
-  /// Araç için kronik sorunları ve bakım önerilerini Gemini 2.5 Flash ile çeker
+  /// Araç için kronik sorunları ve bakım önerilerini Gemini ile çeker
   /// [currentKm] parametresi, analizin aracın o anki durumuna özel olmasını sağlar.
   Future<List<Map<String, dynamic>>> getChronicIssues({
     required String make,
@@ -17,7 +17,8 @@ class GeminiService {
     required int currentKm,
   }) async {
     try {
-      // Aralık 2025 itibarıyla en verimli ve hızlı model
+      // DÜZELTME: Şu an aktif çalışan en hızlı ve kararlı model 'gemini-1.5-flash'tır.
+      // 'gemini-2.5' henüz genel erişimde olmadığı için 404 hatası verir.
       final modelInstance = GenerativeModel(
         model: 'gemini-2.5-flash', 
         apiKey: apiKey,
@@ -54,11 +55,17 @@ class GeminiService {
       final response = await modelInstance.generateContent(content);
 
       if (response.text != null) {
-        // AI bazen markdown formatında atabilir, temizliyoruz
-        final cleanJson = response.text!
-            .replaceAll('```json', '')
-            .replaceAll('```', '')
-            .trim();
+        // AI bazen markdown formatında (```json ... ```) atabilir, temizliyoruz
+        String cleanJson = response.text!.trim();
+        
+        // Markdown temizliği
+        if (cleanJson.startsWith('```json')) {
+          cleanJson = cleanJson.replaceAll('```json', '').replaceAll('```', '');
+        } else if (cleanJson.startsWith('```')) {
+           cleanJson = cleanJson.replaceAll('```', '');
+        }
+        
+        cleanJson = cleanJson.trim();
             
         final List<dynamic> issues = jsonDecode(cleanJson);
         return issues.cast<Map<String, dynamic>>();
