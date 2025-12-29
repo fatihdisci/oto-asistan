@@ -4,14 +4,11 @@ import 'package:google_generative_ai/google_generative_ai.dart';
 
 class GeminiService {
   final String apiKey;
-  
-  // Model ismini sabit olarak tanımladık, ileride değiştirmek kolay olsun.
-  // Not: Şu an stabil sürüm 'gemini-2.5-flash'. 
-  // Google yeni sürüm yayınladığında burayı güncellemen yeterli.
-  static const String _modelName = 'gemini-2.5-flash'; 
 
   GeminiService({required this.apiKey});
 
+  /// Araç için kronik sorunları ve bakım önerilerini Gemini 2.5 Flash ile çeker
+  /// [currentKm] parametresi, analizin aracın o anki durumuna özel olmasını sağlar.
   Future<List<Map<String, dynamic>>> getChronicIssues({
     required String make,
     required String model,
@@ -20,17 +17,12 @@ class GeminiService {
     required int currentKm,
   }) async {
     try {
-      // 1. Model Yapılandırması
+      // Aralık 2025 itibarıyla en verimli ve hızlı model
       final modelInstance = GenerativeModel(
-        model: _modelName,
+        model: 'gemini-2.5-flash', 
         apiKey: apiKey,
-        // AI'ın daha tutarlı cevap vermesi için generationConfig eklenebilir
-        generationConfig: GenerationConfig(
-          temperature: 0.4, // Daha az yaratıcı, daha teknik ve tutarlı cevaplar için düşük sıcaklık
-        ),
       );
       
-      // 2. Prompt (Senin yazdığın prompt gayet başarılı, aynen koruyoruz)
       final prompt = '''
       Sen bir kıdemli otomotiv arıza ve önleyici bakım uzmanısın. 
       Aşağıdaki özelliklere sahip aracın teknik geçmişini, kronik zayıflıklarını ve özellikle mevcut kilometresini analiz et:
@@ -43,55 +35,38 @@ class GeminiService {
       
       GÖREVİN:
       1. Bu aracın $currentKm km seviyesinde en çok karşılaşılan kronik arızalarını belirle.
-      2. Aracın yaşına ve kilometresine bağlı olarak spesifik riskleri değerlendir.
+      2. Aracın yaşına ve kilometresine bağlı olarak (örneğin 100k+ ise ağır bakım, 50k altı ise rodaj sonrası zayıflıklar) spesifik riskleri değerlendir.
       3. Bu kilometre bandında yapılması gereken "hayat kurtarıcı" önleyici bakım tavsiyelerini listele.
       
       ÇIKTI FORMATI:
-      Sadece saf JSON array yapısında cevap ver. Markdown, ```json``` etiketi veya ek açıklama KULLANMA.
+      Sadece aşağıdaki JSON array yapısında cevap ver. Markdown (```json) kullanma.
       [
         {
-          "title": "Sorun Başlığı",
-          "description": "Teknik açıklama.",
-          "riskLevel": "Yüksek", 
-          "solution": "Çözüm önerisi"
+          "title": "Sorun Başlığı (Örn: $currentKm km Zincir Değişimi Gerekliliği)",
+          "description": "Neden bu kilometrede risk teşkil ettiğine dair teknik açıklama.",
+          "riskLevel": "Düşük", "Orta" veya "Yüksek",
+          "solution": "Uzman tavsiyesi: Hangi parçalar kontrol edilmeli veya değiştirilmeli?"
         }
       ]
       ''';
 
       final content = [Content.text(prompt)];
-      
-      // 3. İstek Gönderimi
-      debugPrint('Gemini Analizi Başlatılıyor: $make $model ($currentKm km)');
       final response = await modelInstance.generateContent(content);
 
-      if (response.text == null) {
-        throw Exception('AI boş yanıt döndürdü.');
+      if (response.text != null) {
+        // AI bazen markdown formatında atabilir, temizliyoruz
+        final cleanJson = response.text!
+            .replaceAll('```json', '')
+            .replaceAll('```', '')
+            .trim();
+            
+        final List<dynamic> issues = jsonDecode(cleanJson);
+        return issues.cast<Map<String, dynamic>>();
       }
-
-      // 4. Güvenli Temizlik (Sanitization)
-      // Bazen AI ```json ... ``` formatında, bazen düz metin gönderir.
-      // Bu temizlik işlemi her iki durumu da kurtarır.
-      String cleanJson = response.text!
-          .replaceAll('```json', '')
-          .replaceAll('```', '')
-          .trim();
-      
-      // Olası tırnak işareti hatalarını veya baştaki/sondaki boşlukları temizler
-      if (cleanJson.startsWith('json')) {
-        cleanJson = cleanJson.substring(4).trim();
-      }
-
-      // 5. JSON Dönüştürme (Parsing)
-      final List<dynamic> decodedList = jsonDecode(cleanJson);
-      
-      // Gelen verinin gerçekten beklediğimiz yapıda (Map listesi) olduğunu doğrula
-      return decodedList.cast<Map<String, dynamic>>();
-
+      return [];
     } catch (e) {
-      // Hata durumunda uygulama çökmez, boş liste döner ve hatayı loglar.
-      debugPrint('Gemini Servis Hatası: $e');
-      // İleride buraya kullanıcıya hata mesajı gösterecek bir mekanizma eklenebilir.
-      return []; 
+      debugPrint('Gemini Uzman Analiz Hatası: $e');
+      return [];
     }
   }
 }
