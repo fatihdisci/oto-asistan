@@ -3,21 +3,19 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import '../../data/repositories/vehicle_repository.dart';
 import '../../data/models/vehicle_model.dart';
-// Yeni servisi import et
 import '../../core/services/gemini_service.dart';
 
 class VehicleViewModel extends StateNotifier<VehicleState> {
   final VehicleRepository _vehicleRepository;
-  final GeminiService? _geminiService; // Değişken adı güncellendi
+  final GeminiService? _geminiService;
 
   VehicleViewModel({
     required VehicleRepository vehicleRepository,
-    GeminiService? geminiService, // Parametre adı güncellendi
+    GeminiService? geminiService,
   })  : _vehicleRepository = vehicleRepository,
         _geminiService = geminiService,
         super(VehicleState.initial());
 
-  /// Güvenli State Güncelleme (Dispose hatasını önler)
   @override
   bool get mounted => super.mounted;
 
@@ -67,15 +65,17 @@ class VehicleViewModel extends StateNotifier<VehicleState> {
       // 3. FIREBASE KAYIT
       final vehicleId = await _vehicleRepository.addVehicle(userId, vehicle);
 
-      // 4. GEMINI 2.5 FLASH ANALİZİ
+      // 4. GEMINI PRO ANALİZİ
       if (_geminiService != null) {
         _safeSetState(state.copyWith(isAnalyzingAI: true));
         try {
+          // DÜZELTME BURADA YAPILDI: currentKm parametresi eklendi.
           final chronicIssues = await _geminiService!.getChronicIssues(
             make: make,
             model: model,
             year: year,
             engine: engine,
+            currentKm: currentKm, // [Fix]: Artık hata vermeyecek.
           );
           await _vehicleRepository.updateChronicIssues(userId, vehicleId, chronicIssues);
         } catch (aiError) {
