@@ -76,7 +76,6 @@ class VehicleViewModel extends StateNotifier<VehicleState> {
             model: model,
             year: year,
             engine: engine,
-            currentKm: currentKm,
           );
           await _vehicleRepository.updateChronicIssues(userId, vehicleId, chronicIssues);
         } catch (aiError) {

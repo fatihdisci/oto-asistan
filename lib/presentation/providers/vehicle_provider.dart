@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart'; // EKLENDİ
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../../data/repositories/vehicle_repository.dart';
 import '../../data/models/vehicle_model.dart';
-import '../../core/services/openai_service.dart';
+import '../../core/services/gemini_service.dart'; // Doğru servis import edildi
 import '../viewmodels/vehicle_viewmodel.dart';
 import '../viewmodels/dashboard_viewmodel.dart';
 import 'auth_provider.dart';
@@ -11,26 +11,19 @@ final vehicleRepositoryProvider = Provider<VehicleRepository>((ref) {
   return VehicleRepository();
 });
 
-// Gemini API Sağlayıcısı
-final openAIServiceProvider = Provider<OpenAIService?>((ref) {
-  // DÜZELTME: Artık .env dosyasından okuyoruz
+// Gemini API Sağlayıcısı - İsmi düzeltildi
+final geminiServiceProvider = Provider<GeminiService?>((ref) {
   final apiKey = dotenv.env['GEMINI_API_KEY'] ?? '';
-  
-  // Anahtar yoksa null döner, böylece ViewModel AI'yı pas geçer
-  if (apiKey.isEmpty) {
-    print("UYARI: Gemini API Key bulunamadı!");
-    return null;
-  }
-  return OpenAIService(apiKey: apiKey);
+  if (apiKey.isEmpty) return null;
+  return GeminiService(apiKey: apiKey);
 });
 
 final vehicleViewModelProvider =
     StateNotifierProvider<VehicleViewModel, VehicleState>((ref) {
-  final user = ref.watch(authStateChangesProvider).value;
+  // ViewModel'e doğru servisleri ve parametreleri geçiyoruz
   return VehicleViewModel(
     vehicleRepository: ref.watch(vehicleRepositoryProvider),
-    openAIService: ref.watch(openAIServiceProvider),
-    userId: user?.uid,
+    geminiService: ref.watch(geminiServiceProvider),
   );
 });
 

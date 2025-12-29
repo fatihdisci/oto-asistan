@@ -2,71 +2,55 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 
-class GeminiService {
+class GeminiService { // İsim OpenAI yerine GeminiService oldu
   final String apiKey;
-  // DÜZELTME: Şu an çalışan en güncel ve hızlı model 'gemini-1.5-flash'tır.
-  // Google 'gemini-2.5-flash'ı yayınladığında burayı güncelleyebilirsin.
-  static const String _modelName = 'gemini-2.5-flash';
 
   GeminiService({required this.apiKey});
 
+  /// Araç için kronik sorunları Gemini 2.5 Flash modeli ile çeker
   Future<List<Map<String, dynamic>>> getChronicIssues({
     required String make,
     required String model,
     required int year,
     required String engine,
-    required int currentKm,
   }) async {
     try {
+      // GÜNCELLEME: En yeni ve hızlı model olan gemini-2.5-flash kullanılıyor
       final modelInstance = GenerativeModel(
-        model: _modelName,
+        model: 'gemini-2.5-flash', 
         apiKey: apiKey,
       );
-
+      
       final prompt = '''
-      Sen uzman bir otomotiv teknisyenisin. Aşağıdaki aracın $currentKm km'deki durumunu analiz et:
-      Araç: $year $make $model - Motor: $engine
-      
-      GÖREV:
-      Bu kilometredeki bu araç için "Kronik Sorunlar" ve "Bakım Tavsiyeleri" üret.
-      
-      ÇIKTI FORMATI:
-      SADECE geçerli bir JSON array döndür. Markdown (```json) kullanma.
-      Örnek:
-      [
-        {
-          "title": "Triger Kayışı Riski",
-          "description": "Bu motorlarda 90.000 km'de triger değişimi kritiktir.",
-          "riskLevel": "Yüksek",
-          "solution": "Acilen triger setini kontrol ettirin."
-        }
-      ]
+      Bu araç için bilinen en yaygın kronik sorunları ve çözüm önerilerini JSON formatında döndür:
+      Marka: $make, Model: $model, Yıl: $year, Motor: $engine
+
+      Her sorun için şu bilgileri içeren bir liste döndür:
+      - title: Sorun başlığı
+      - description: Sorun açıklaması (Kısa ve öz)
+      - riskLevel: "Düşük", "Orta", "Yüksek" (Türkçe olsun)
+      - solution: Çözüm önerisi
+
+      Sadece saf JSON array döndür, markdown (```json) kullanma.
+      Format: [{"title": "...", "description": "...", "riskLevel": "...", "solution": "..."}]
       ''';
 
       final content = [Content.text(prompt)];
       final response = await modelInstance.generateContent(content);
 
-      if (response.text == null) return [];
-
-      // SENIOR CLEANUP: AI bazen cevabı kirletir, temizliyoruz.
-      String cleanJson = response.text!.trim();
-      
-      // Markdown temizliği
-      cleanJson = cleanJson.replaceAll('```json', '').replaceAll('```', '');
-      
-      // Olası metin fazlalıklarını at (Sadece [ ile ] arasını al)
-      final startIndex = cleanJson.indexOf('[');
-      final endIndex = cleanJson.lastIndexOf(']');
-      
-      if (startIndex != -1 && endIndex != -1) {
-        cleanJson = cleanJson.substring(startIndex, endIndex + 1);
+      if (response.text != null) {
+        // Gelen veriyi temizle
+        final cleanJson = response.text!
+            .replaceAll('```json', '')
+            .replaceAll('```', '')
+            .trim();
+            
+        final List<dynamic> issues = jsonDecode(cleanJson);
+        return issues.cast<Map<String, dynamic>>();
       }
-
-      final List<dynamic> decodedList = jsonDecode(cleanJson);
-      return decodedList.cast<Map<String, dynamic>>();
-
+      return [];
     } catch (e) {
-      debugPrint('Gemini Servis Hatası: $e');
+      debugPrint('Gemini API Hatası: $e');
       return [];
     }
   }
